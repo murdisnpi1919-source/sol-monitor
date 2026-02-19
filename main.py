@@ -9,6 +9,22 @@ import person_monitor
 
 def monitor_loop():
     print("🚀 監視スタート")
+
+    # 🔥 起動確認テスト通知（1回だけ）
+    try:
+        import requests
+        import os
+        requests.post(
+            f"https://api.telegram.org/bot{os.getenv('BOT_TOKEN')}/sendMessage",
+            json={
+                "chat_id": os.getenv("CHAT_ID"),
+                "text": "✅ Render監視ボット起動成功",
+            }
+        )
+        print("✅ テスト通知送信完了")
+    except Exception as e:
+        print("テスト通知失敗:", e)
+
     while True:
         try:
             bingx_monitor.run()
@@ -39,3 +55,4 @@ if __name__ == "__main__":
     t.start()
 
     start_web_server()
+
