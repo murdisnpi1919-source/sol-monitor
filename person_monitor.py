@@ -7,7 +7,6 @@ CHAT_ID = os.getenv("CHAT_ID")
 THREAD_ID = 5272
 
 RPC_URL = "https://api.mainnet-beta.solana.com"
-
 BINGX_ADDRESS = "J1BDJEdvTmmcjeTMVTHLPaaNvuQ3mdxeuWEM1YyMksLy"
 
 TARGET_WALLETS = {
@@ -23,27 +22,34 @@ KNOWN_WALLETS = TARGET_WALLETS.union({BINGX_ADDRESS})
 
 tracked_new_wallets = {}
 seen = set()
+SEEN_LIMIT = 2000
 last_balances = {}
 
 # =================
 
 def send(msg):
-    requests.post(
-        f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-        json={
-            "chat_id": CHAT_ID,
-            "message_thread_id": THREAD_ID,
-            "text": msg,
-            "parse_mode": "HTML",
-            "disable_web_page_preview": True
-        }
-    )
+    try:
+        requests.post(
+            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+            json={
+                "chat_id": CHAT_ID,
+                "message_thread_id": THREAD_ID,
+                "text": msg,
+                "parse_mode": "HTML",
+                "disable_web_page_preview": True
+            },
+            timeout=15
+        )
+    except:
+        pass
 
 def rpc(payload):
-    r = requests.post(RPC_URL, json=payload)
-    return r.json().get("result")
+    try:
+        r = requests.post(RPC_URL, json=payload, timeout=15)
+        return r.json().get("result")
+    except:
+        return None
 
-# 🔥 limit=50 に変更済み
 def get_signatures(addr):
     return rpc({
         "jsonrpc":"2.0","id":1,
@@ -64,6 +70,8 @@ def get_balance(addr):
         "method":"getBalance",
         "params":[addr]
     })
+    if not result:
+        return 0
     return result["value"] / 1_000_000_000
 
 def get_token_info(mint):
@@ -99,13 +107,13 @@ def get_token_info(mint):
 # =================
 
 def run():
-    global last_balances
+    global seen
 
     for wallet in TARGET_WALLETS:
 
         wallet_link = f"<a href='https://solscan.io/account/{wallet}'>{wallet}</a>"
 
-        # ① 残高減少検知
+        # 残高監視
         current_balance = get_balance(wallet)
 
         if wallet not in last_balances:
@@ -120,20 +128,22 @@ def run():
                 )
             last_balances[wallet] = current_balance
 
-        # ② 送金チェック
+        # 送金監視
         sigs = get_signatures(wallet)
 
-        for s in reversed(sigs):  # 古い順に処理
+        for s in reversed(sigs):
             sig = s["signature"]
+
             if sig in seen:
                 continue
+
             seen.add(sig)
+            if len(seen) > SEEN_LIMIT:
+                seen = set(list(seen)[-1000:])
 
             tx = get_tx(sig)
             if not tx:
                 continue
-
-            meta = tx.get("meta")
 
             for ix in tx["transaction"]["message"]["instructions"]:
                 if ix.get("program") != "system":
@@ -168,57 +178,3 @@ def run():
                         )
 
                         tracked_new_wallets[destination] = True
-
-    # ③ 新規ウォレット購入検知
-    for wallet in list(tracked_new_wallets.keys()):
-
-        wallet_link = f"<a href='https://solscan.io/account/{wallet}'>{wallet}</a>"
-        sigs = get_signatures(wallet)
-
-        for s in reversed(sigs):
-            sig = s["signature"]
-            tx = get_tx(sig)
-            if not tx:
-                continue
-
-            meta = tx.get("meta")
-            if not meta:
-                continue
-
-            post_tokens = meta.get("postTokenBalances")
-            pre_tokens = meta.get("preTokenBalances")
-
-            if not post_tokens:
-                continue
-
-            for post_tb in post_tokens:
-                if post_tb.get("owner") != wallet:
-                    continue
-
-                mint = post_tb.get("mint")
-                post_amount = int(post_tb.get("uiTokenAmount", {}).get("amount", 0))
-
-                pre_amount = 0
-                if pre_tokens:
-                    for pre_tb in pre_tokens:
-                        if pre_tb.get("mint") == mint and pre_tb.get("owner") == wallet:
-                            pre_amount = int(pre_tb.get("uiTokenAmount", {}).get("amount", 0))
-                            break
-
-                if post_amount > pre_amount:
-                    token_name, mc, age = get_token_info(mint)
-
-                    send(
-                        f"🚀 <b>新規ウォレット購入検知</b>\n\n"
-                        f"👛 {wallet_link}\n\n"
-                        f"🪙 <b>{token_name}</b>\n"
-                        f"📊 MC: {mc}\n"
-                        f"🗓 Age: {age}\n\n"
-                        f"🔗 https://solscan.io/tx/{sig}"
-                    )
-
-                    del tracked_new_wallets[wallet]
-                    break
-            else:
-                continue
-            break
