@@ -37,7 +37,7 @@ def get_signatures(addr):
     return rpc({
         "jsonrpc": "2.0", "id": 1,
         "method": "getSignaturesForAddress",
-        "params": [addr, {"limit": 20}]
+        "params": [addr, {"limit": 50}]
     }) or []
 
 
@@ -180,4 +180,5 @@ def run():
             )
 
             del tracked_wallets[wallet]
+
             break
