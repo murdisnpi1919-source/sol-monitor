@@ -13,24 +13,32 @@ RPC_URL = "https://api.mainnet-beta.solana.com"
 
 tracked_wallets = {}
 seen = set()
+SEEN_LIMIT = 2000  # メモリ保護
 
 
 def send(msg, thread_id):
-    requests.post(
-        f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-        json={
-            "chat_id": CHAT_ID,
-            "message_thread_id": thread_id,
-            "text": msg,
-            "parse_mode": "HTML",
-            "disable_web_page_preview": True
-        }
-    )
+    try:
+        requests.post(
+            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+            json={
+                "chat_id": CHAT_ID,
+                "message_thread_id": thread_id,
+                "text": msg,
+                "parse_mode": "HTML",
+                "disable_web_page_preview": True
+            },
+            timeout=15
+        )
+    except:
+        pass
 
 
 def rpc(payload):
-    r = requests.post(RPC_URL, json=payload, timeout=15)
-    return r.json().get("result")
+    try:
+        r = requests.post(RPC_URL, json=payload, timeout=15)
+        return r.json().get("result")
+    except:
+        return None
 
 
 def get_signatures(addr):
@@ -81,13 +89,20 @@ def get_token_info(mint):
 
 
 def run():
+    global seen
+
     sigs = get_signatures(BINGX_ADDRESS)
 
-    for s in sigs:
+    for s in reversed(sigs):  # 古い順に処理
         sig = s["signature"]
+
         if sig in seen:
             continue
+
         seen.add(sig)
+
+        if len(seen) > SEEN_LIMIT:
+            seen = set(list(seen)[-1000:])
 
         tx = get_tx(sig)
         if not tx:
@@ -138,7 +153,7 @@ def run():
     for wallet in list(tracked_wallets.keys()):
         sigs = get_signatures(wallet)
 
-        for s in sigs[:5]:
+        for s in reversed(sigs[:10]):
             sig = s["signature"]
             tx = get_tx(sig)
             if not tx:
@@ -180,5 +195,4 @@ def run():
             )
 
             del tracked_wallets[wallet]
-
             break
