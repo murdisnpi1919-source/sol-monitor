@@ -8,49 +8,7 @@ import person_monitor
 
 
 def monitor_loop():
-    print("🚀 監視スタート")
-
-    # 🔥 起動確認テスト通知（3トピック）
-    try:
-        import requests
-
-        bot = os.getenv("BOT_TOKEN")
-        chat = os.getenv("CHAT_ID")
-
-        # 🔴 優先監視
-        requests.post(
-            f"https://api.telegram.org/bot{bot}/sendMessage",
-            json={
-                "chat_id": chat,
-                "message_thread_id": 5197,
-                "text": "🔴 優先監視トピック テスト成功",
-            }
-        )
-
-        # 📡 ワイド監視
-        requests.post(
-            f"https://api.telegram.org/bot{bot}/sendMessage",
-            json={
-                "chat_id": chat,
-                "message_thread_id": 5238,
-                "text": "📡 ワイド監視トピック テスト成功",
-            }
-        )
-
-        # 👤 既存ウォレット監視
-        requests.post(
-            f"https://api.telegram.org/bot{bot}/sendMessage",
-            json={
-                "chat_id": chat,
-                "message_thread_id": 5272,
-                "text": "👤 既存ウォレット監視トピック テスト成功",
-            }
-        )
-
-        print("✅ 全トピックテスト通知送信完了")
-
-    except Exception as e:
-        print("テスト通知失敗:", e)
+    print("🚀 本番監視スタート")
 
     while True:
         try:
@@ -62,6 +20,7 @@ def monitor_loop():
             time.sleep(10)
 
 
+# RenderのWeb Service対策（ポートを開く）
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -77,8 +36,10 @@ def start_web_server():
 
 
 if __name__ == "__main__":
+    # 監視ループを別スレッドで実行
     t = threading.Thread(target=monitor_loop)
     t.daemon = True
     t.start()
 
+    # Webサーバー起動（必須）
     start_web_server()
