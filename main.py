@@ -20,12 +20,17 @@ def monitor_loop():
             time.sleep(10)
 
 
-# RenderのWeb Service対策（ポートを開く）
 class Handler(BaseHTTPRequestHandler):
+
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b"OK")
+
+    # 🔥 これを追加（重要）
+    def do_HEAD(self):
+        self.send_response(200)
+        self.end_headers()
 
 
 def start_web_server():
@@ -36,11 +41,8 @@ def start_web_server():
 
 
 if __name__ == "__main__":
-    # 監視ループを別スレッドで実行
     t = threading.Thread(target=monitor_loop)
     t.daemon = True
     t.start()
 
-    # Webサーバー起動（必須）
     start_web_server()
-
