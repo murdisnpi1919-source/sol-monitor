@@ -10,18 +10,45 @@ import person_monitor
 def monitor_loop():
     print("🚀 監視スタート")
 
-    # 🔥 起動確認テスト通知（1回だけ）
+    # 🔥 起動確認テスト通知（3トピック）
     try:
         import requests
-        import os
+
+        bot = os.getenv("BOT_TOKEN")
+        chat = os.getenv("CHAT_ID")
+
+        # 🔴 優先監視
         requests.post(
-            f"https://api.telegram.org/bot{os.getenv('BOT_TOKEN')}/sendMessage",
+            f"https://api.telegram.org/bot{bot}/sendMessage",
             json={
-                "chat_id": os.getenv("CHAT_ID"),
-                "text": "✅ Render監視ボット起動成功",
+                "chat_id": chat,
+                "message_thread_id": 5197,
+                "text": "🔴 優先監視トピック テスト成功",
             }
         )
-        print("✅ テスト通知送信完了")
+
+        # 📡 ワイド監視
+        requests.post(
+            f"https://api.telegram.org/bot{bot}/sendMessage",
+            json={
+                "chat_id": chat,
+                "message_thread_id": 5238,
+                "text": "📡 ワイド監視トピック テスト成功",
+            }
+        )
+
+        # 👤 既存ウォレット監視
+        requests.post(
+            f"https://api.telegram.org/bot{bot}/sendMessage",
+            json={
+                "chat_id": chat,
+                "message_thread_id": 5272,
+                "text": "👤 既存ウォレット監視トピック テスト成功",
+            }
+        )
+
+        print("✅ 全トピックテスト通知送信完了")
+
     except Exception as e:
         print("テスト通知失敗:", e)
 
@@ -55,4 +82,3 @@ if __name__ == "__main__":
     t.start()
 
     start_web_server()
-
