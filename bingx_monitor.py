@@ -13,7 +13,7 @@ RPC_URL = "https://api.mainnet-beta.solana.com"
 
 tracked_wallets = {}
 seen = set()
-SEEN_LIMIT = 2000  # メモリ保護
+SEEN_LIMIT = 3000  # 余裕持たせる
 
 
 def send(msg, thread_id):
@@ -45,7 +45,7 @@ def get_signatures(addr):
     return rpc({
         "jsonrpc": "2.0", "id": 1,
         "method": "getSignaturesForAddress",
-        "params": [addr, {"limit": 50}]
+        "params": [addr, {"limit": 100}]
     }) or []
 
 
@@ -99,14 +99,15 @@ def run():
         if sig in seen:
             continue
 
-        seen.add(sig)
-
-        if len(seen) > SEEN_LIMIT:
-            seen = set(list(seen)[-1000:])
-
         tx = get_tx(sig)
         if not tx:
             continue
+
+        # 🔥 tx取得成功後にseen登録
+        seen.add(sig)
+
+        if len(seen) > SEEN_LIMIT:
+            seen = set(list(seen)[-1500:])
 
         for ix in tx["transaction"]["message"]["instructions"]:
             if ix.get("program") != "system":
@@ -149,11 +150,14 @@ def run():
                     THREAD_WIDE
                 )
 
-    # 初回購入追跡
+    # ===============================
+    # 初回購入追跡（安全処理）
+    # ===============================
+
     for wallet in list(tracked_wallets.keys()):
         sigs = get_signatures(wallet)
 
-        for s in reversed(sigs[:10]):
+        for s in reversed(sigs[:20]):
             sig = s["signature"]
             tx = get_tx(sig)
             if not tx:
